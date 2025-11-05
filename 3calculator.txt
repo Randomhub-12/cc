@@ -1,0 +1,150 @@
+Download -> https://www.azul.com/downloads/?package=jdk#zulu
+
+add bin path in environment variable on top
+
+
+create a folder CalculatorApp open it in vs
+
+Calculator.idl -> module CalculatorApp {
+    interface Calculator {
+        float add(in float a, in float b);
+        float sub(in float a, in float b);
+        float mul(in float a, in float b);
+        float div(in float a, in float b);
+    };
+};
+
+
+run -> idlj -fall Calculator.idl
+This will generate a subfolder:
+CalculatorApp/CalculatorApp/ with helper and skeleton files.
+
+
+CalculatorApp\CalculatorImpl.java -> package CalculatorApp;
+import org.omg.CORBA.*;
+
+public class CalculatorImpl extends CalculatorPOA {
+    public float add(float a, float b) { return a + b; }
+    public float sub(float a, float b) { return a - b; }
+    public float mul(float a, float b) { return a * b; }
+    public float div(float a, float b) { return a / b; }
+}
+
+
+
+CalculatorApp\Server.java -> package CalculatorApp;
+
+import org.omg.CORBA.*;
+import org.omg.PortableServer.*;
+import org.omg.CosNaming.*;
+
+public class Server {
+    public static void main(String args[]) {
+        try {
+            ORB orb = ORB.init(args, null);
+            POA rootpoa = POAHelper.narrow(orb.resolve_initial_references("RootPOA"));
+            rootpoa.the_POAManager().activate();
+
+            // Create and register Calculator service
+            CalculatorImpl calcImpl = new CalculatorImpl();
+            org.omg.CORBA.Object ref = rootpoa.servant_to_reference(calcImpl);
+            Calculator calcRef = CalculatorHelper.narrow(ref);
+
+            org.omg.CORBA.Object objRef = orb.resolve_initial_references("NameService");
+            NamingContextExt ncRef = NamingContextExtHelper.narrow(objRef);
+
+            ncRef.rebind(ncRef.to_name("CalculatorService"), calcRef);
+
+            System.out.println("✅ Calculator service registered successfully.");
+            orb.run();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+
+CalculatorApp\Client1.java -> package CalculatorApp;
+
+import org.omg.CORBA.*;
+import org.omg.CosNaming.*;
+
+public class Client1 {
+    public static void main(String args[]) {
+        try {
+            ORB orb = ORB.init(args, null);
+            org.omg.CORBA.Object objRef = orb.resolve_initial_references("NameService");
+            NamingContextExt ncRef = NamingContextExtHelper.narrow(objRef);
+
+            Calculator calc = CalculatorHelper.narrow(ncRef.resolve_str("CalculatorService"));
+
+            System.out.println("Addition (10 + 5): " + calc.add(10, 5));
+            System.out.println("Subtraction (10 - 5): " + calc.sub(10, 5));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+
+CalculatorApp\Client2.java -> package CalculatorApp;
+
+import org.omg.CORBA.*;
+import org.omg.CosNaming.*;
+
+public class Client2 {
+    public static void main(String args[]) {
+        try {
+            ORB orb = ORB.init(args, null);
+            org.omg.CORBA.Object objRef = orb.resolve_initial_references("NameService");
+            NamingContextExt ncRef = NamingContextExtHelper.narrow(objRef);
+
+            Calculator calc = CalculatorHelper.narrow(ncRef.resolve_str("CalculatorService"));
+
+            System.out.println("Multiplication (6 * 4): " + calc.mul(6, 4));
+            System.out.println("Division (20 / 4): " + calc.div(20, 4));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+
+run -> javac CalculatorApp\*.java
+
+
+Terminal 1
+orbd -ORBInitialPort 1050
+
+
+Terminal 2
+java CalculatorApp.Server -ORBInitialHost localhost -ORBInitialPort 1050
+
+
+
+Terminal 3
+java CalculatorApp.Client1 -ORBInitialHost localhost -ORBInitialPort 1050
+
+
+Terminal 4
+java CalculatorApp.Client2 -ORBInitialHost localhost -ORBInitialPort 1050
+
+
+to re run
+
+
+Terminal 1
+orbd -ORBInitialPort 1050
+
+
+Terminal 2
+java CalculatorApp.Server -ORBInitialHost localhost -ORBInitialPort 1050
+
+
+
+Terminal 3
+java CalculatorApp.Client1 -ORBInitialHost localhost -ORBInitialPort 1050
+
+
+Terminal 4
+java CalculatorApp.Client2 -ORBInitialHost localhost -ORBInitialPort 1050

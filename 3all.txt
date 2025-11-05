@@ -1,0 +1,245 @@
+Download -> https://www.azul.com/downloads/?package=jdk#zulu
+
+add bin path in environment variable on top
+
+crearte 3 folder StringApp   	CalculatorApp      FactorialApp
+
+
+StringApp\String.idl -> module StringApp {
+    interface StringOps {
+        string reverse(in string input);
+        string toUpper(in string input);
+    };
+};
+
+
+
+CalculatorApp\Calculator.idl -> module CalculatorApp {
+    interface Calculator {
+        float add(in float a, in float b);
+        float sub(in float a, in float b);
+        float mul(in float a, in float b);
+        float div(in float a, in float b);
+    };
+};
+
+
+
+FactorialApp\Factorial.idl -> module FactorialApp {
+    interface Factorial {
+        long compute(in long n);
+    };
+};
+
+
+run -> idlj -fall StringApp\String.idl
+run -> idlj -fall CalculatorApp\Calculator.idl
+run -> idlj -fall FactorialApp\Factorial.idl
+
+
+StringApp\StringImpl.java -> package StringApp;
+import org.omg.CORBA.*;
+
+public class StringImpl extends StringOpsPOA {
+    public String reverse(String input) {
+        return new StringBuilder(input).reverse().toString();
+    }
+    public String toUpper(String input) {
+        return input.toUpperCase();
+    }
+}
+
+
+
+CalculatorApp\CalculatorImpl.java ->  package CalculatorApp;
+import org.omg.CORBA.*;
+
+public class CalculatorImpl extends CalculatorPOA {
+    public float add(float a, float b) { return a + b; }
+    public float sub(float a, float b) { return a - b; }
+    public float mul(float a, float b) { return a * b; }
+    public float div(float a, float b) { return a / b; }
+}
+
+
+FactorialApp\FactorialImpl.java -> package FactorialApp;
+import org.omg.CORBA.*;
+
+public class FactorialImpl extends FactorialPOA {
+    public long compute(long n) {
+        if (n <= 1) return 1;
+        return n * compute(n - 1);
+    }
+}
+
+
+Server.java -> import StringApp.*;
+import CalculatorApp.*;
+import FactorialApp.*;
+import org.omg.CORBA.*;
+import org.omg.PortableServer.*;
+import org.omg.CosNaming.*;
+
+public class Server {
+    public static void main(String args[]) {
+        try {
+            ORB orb = ORB.init(args, null);
+            POA rootpoa = POAHelper.narrow(orb.resolve_initial_references("RootPOA"));
+            rootpoa.the_POAManager().activate();
+
+            // Create & register services
+            StringImpl strImpl = new StringImpl();
+            CalculatorImpl calcImpl = new CalculatorImpl();
+            FactorialImpl factImpl = new FactorialImpl();
+
+            org.omg.CORBA.Object ref1 = rootpoa.servant_to_reference(strImpl);
+            org.omg.CORBA.Object ref2 = rootpoa.servant_to_reference(calcImpl);
+            org.omg.CORBA.Object ref3 = rootpoa.servant_to_reference(factImpl);
+
+            StringOps strRef = StringOpsHelper.narrow(ref1);
+            Calculator calcRef = CalculatorHelper.narrow(ref2);
+            Factorial factRef = FactorialHelper.narrow(ref3);
+
+            org.omg.CORBA.Object objRef = orb.resolve_initial_references("NameService");
+            NamingContextExt ncRef = NamingContextExtHelper.narrow(objRef);
+
+            ncRef.rebind(ncRef.to_name("StringService"), strRef);
+            ncRef.rebind(ncRef.to_name("CalculatorService"), calcRef);
+            ncRef.rebind(ncRef.to_name("FactorialService"), factRef);
+
+            System.out.println("✅ All services registered.");
+            orb.run();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+
+Client1.java -> import StringApp.*;
+import org.omg.CORBA.*;
+import org.omg.CosNaming.*;
+
+public class Client1 {
+    public static void main(String args[]) {
+        try {
+            ORB orb = ORB.init(args, null);
+            org.omg.CORBA.Object objRef = orb.resolve_initial_references("NameService");
+            NamingContextExt ncRef = NamingContextExtHelper.narrow(objRef);
+
+            StringOps str = StringOpsHelper.narrow(ncRef.resolve_str("StringService"));
+            System.out.println("Reverse: " + str.reverse("Distributed"));
+            System.out.println("Upper: " + str.toUpper("computing"));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+
+Client2.java -> import CalculatorApp.*;
+import FactorialApp.*;
+import org.omg.CORBA.*;
+import org.omg.CosNaming.*;
+
+public class Client2 {
+    public static void main(String args[]) {
+        try {
+            ORB orb = ORB.init(args, null);
+            org.omg.CORBA.Object objRef = orb.resolve_initial_references("NameService");
+            NamingContextExt ncRef = NamingContextExtHelper.narrow(objRef);
+
+            Calculator calc = CalculatorHelper.narrow(ncRef.resolve_str("CalculatorService"));
+            Factorial fact = FactorialHelper.narrow(ncRef.resolve_str("FactorialService"));
+
+            System.out.println("Addition: " + calc.add(10, 20));
+            System.out.println("Multiplication: " + calc.mul(5, 4));
+            System.out.println("Factorial(5): " + fact.compute(5));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+
+javac StringApp\*.java CalculatorApp\*.java FactorialApp\*.java Server.java Client1.java Client2.java
+
+if error occur then
+
+Open this file: FactorialApp\FactorialOperations.java
+
+If it says int compute(int n)
+
+then change your FactorialImpl.java -> package FactorialApp;
+import org.omg.CORBA.*;
+
+public class FactorialImpl extends FactorialPOA {
+    public int compute(int n) {
+        if (n <= 1) return 1;
+        return n * compute(n - 1);
+    }
+}
+
+
+If it says long compute(int n) 
+
+then change your FactorialImpl.java -> package FactorialApp;
+import org.omg.CORBA.*;
+
+public class FactorialImpl extends FactorialPOA {
+    public long compute(int n) {
+        if (n <= 1) return 1;
+        return n * compute(n - 1);
+    }
+}
+
+
+Recompile
+
+run -> javac FactorialApp\FactorialImpl.java
+run -> javac StringApp\*.java CalculatorApp\*.java FactorialApp\*.java Server.java Client1.java Client2.java
+
+Terminal 1 -> orbd -ORBInitialPort 1050
+
+Terminal 2 -> java Server -ORBInitialHost localhost -ORBInitialPort 1050
+
+Terminal 3 -> java Client1 -ORBInitialHost localhost -ORBInitialPort 1050
+
+Terminal 4 -> java Client2 -ORBInitialHost localhost -ORBInitialPort 1050
+
+ 
+o/p->
+
+Server -> ✅ All services registered.
+
+Client1 -> Reverse: detubirtsiD
+Upper: COMPUTING
+
+Client2 -> Addition: 30.0
+Multiplication: 20.0
+Factorial(5): 120
+
+
+
+to run it again
+
+Terminal 1 -> orbd -ORBInitialPort 1050 
+
+Address already in use error occur
+
+Terminal 1 -> orbd -ORBInitialPort 1051
+
+Terminal 2 -> java Server -ORBInitialHost localhost -ORBInitialPort 1050 OR java Server -ORBInitialHost localhost -ORBInitialPort 1051
+O/P -> ✅ All services registered.
+
+Terminal 3 -> java Client1 -ORBInitialHost localhost -ORBInitialPort 1050 OR java Client1 -ORBInitialHost localhost -ORBInitialPort 1051
+O/P -> Reverse: detubirtsiD
+Upper: COMPUTING
+
+Terminal 4 -> java Client2 -ORBInitialHost localhost -ORBInitialPort 1050 OR java Client2 -ORBInitialHost localhost -ORBInitialPort 1051
+
+O/P -> Addition: 30.0
+Multiplication: 20.0
+Factorial(5): 120
+
+

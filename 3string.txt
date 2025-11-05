@@ -1,0 +1,150 @@
+Download -> https://www.azul.com/downloads/?package=jdk#zulu
+
+add bin path in environment variable on top
+
+
+create a folder StringApp open it in vs
+
+String.idl -> module StringApp {
+    interface StringOps {
+        string reverse(in string input);
+        string toUpper(in string input);
+    };
+};
+
+
+run -> idlj -fall String.idl
+This generates folders like StringApp/StringApp/ with stub/skeleton files.
+
+
+StringApp\StringImpl.java -> package StringApp;
+import org.omg.CORBA.*;
+
+public class StringImpl extends StringOpsPOA {
+    public String reverse(String input) {
+        return new StringBuilder(input).reverse().toString();
+    }
+    public String toUpper(String input) {
+        return input.toUpperCase();
+    }
+}
+
+
+StringApp\Server.java -> package StringApp;
+
+import org.omg.CORBA.*;
+import org.omg.PortableServer.*;
+import org.omg.CosNaming.*;
+
+public class Server {
+    public static void main(String args[]) {
+        try {
+            ORB orb = ORB.init(args, null);
+            POA rootpoa = POAHelper.narrow(orb.resolve_initial_references("RootPOA"));
+            rootpoa.the_POAManager().activate();
+
+            // Create & register String service
+            StringImpl strImpl = new StringImpl();
+            org.omg.CORBA.Object ref = rootpoa.servant_to_reference(strImpl);
+            StringOps strRef = StringOpsHelper.narrow(ref);
+
+            org.omg.CORBA.Object objRef = orb.resolve_initial_references("NameService");
+            NamingContextExt ncRef = NamingContextExtHelper.narrow(objRef);
+
+            ncRef.rebind(ncRef.to_name("StringService"), strRef);
+
+            System.out.println("✅ String service registered successfully.");
+            orb.run();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+
+
+StringApp\Client1.java -> package StringApp;
+
+import org.omg.CORBA.*;
+import org.omg.CosNaming.*;
+
+public class Client1 {
+    public static void main(String args[]) {
+        try {
+            ORB orb = ORB.init(args, null);
+            org.omg.CORBA.Object objRef = orb.resolve_initial_references("NameService");
+            NamingContextExt ncRef = NamingContextExtHelper.narrow(objRef);
+
+            StringOps str = StringOpsHelper.narrow(ncRef.resolve_str("StringService"));
+
+            System.out.println("Reverse: " + str.reverse("Distributed"));
+            System.out.println("Upper: " + str.toUpper("computing"));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+
+
+StringApp\Client2.java -> package StringApp;
+
+import org.omg.CORBA.*;
+import org.omg.CosNaming.*;
+
+public class Client2 {
+    public static void main(String args[]) {
+        try {
+            ORB orb = ORB.init(args, null);
+            org.omg.CORBA.Object objRef = orb.resolve_initial_references("NameService");
+            NamingContextExt ncRef = NamingContextExtHelper.narrow(objRef);
+
+            StringOps str = StringOpsHelper.narrow(ncRef.resolve_str("StringService"));
+
+            System.out.println("Reverse: " + str.reverse("CORBA"));
+            System.out.println("Upper: " + str.toUpper("middleware"));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+
+
+run -> javac StringApp\*.java
+
+
+Terminal 1:
+orbd -ORBInitialPort 1050
+
+
+Terminal 2:
+java StringApp.Server -ORBInitialHost localhost -ORBInitialPort 1050
+
+
+Terminal 3:
+java StringApp.Client1 -ORBInitialHost localhost -ORBInitialPort 1050
+
+
+Terminal 4:
+java StringApp.Client2 -ORBInitialHost localhost -ORBInitialPort 1050
+
+
+it re run 
+
+Terminal 1:
+orbd -ORBInitialPort 1050
+
+
+Terminal 2:
+java StringApp.Server -ORBInitialHost localhost -ORBInitialPort 1050
+
+
+Terminal 3:
+java StringApp.Client1 -ORBInitialHost localhost -ORBInitialPort 1050
+
+
+Terminal 4:
+java StringApp.Client2 -ORBInitialHost localhost -ORBInitialPort 1050
+
+
